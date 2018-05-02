@@ -3,8 +3,9 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 import datetime
+from pudb import set_trace;
 
-with open('data/countries_s1') as f:
+with open('data/countries_s1_dbg') as f:
     facts = f.read().splitlines()
 facts = [el.split(',') for el in facts]
 preds = [fact[0] for fact in facts]
@@ -39,6 +40,9 @@ data_aux = knowledge_pos
 knowledge_pos = torch.cat((predicates[knowledge_pos[:,0]],
                            constants[knowledge_pos[:,1]],
                            constants[knowledge_pos[:,2]]),dim=1)
+print(knowledge_pos)
+print(idxToPreds)
+print(idxToCons)
 
 ####FORWARD CHAINING
 def forward_step(facts):
@@ -46,7 +50,7 @@ def forward_step(facts):
     i = 0
     for fact1 in facts:
         #rule 0
-        p = fact1[-1]
+        p = fact1[-1].expand(1)
         # b1 with the body of fact1
         p = p*F.cosine_similarity(rules[0],fact1[:num_predicates],dim=0)
         new_fact = torch.cat((rules[0],
@@ -77,13 +81,14 @@ def forward_step(facts):
                 new_facts = torch.cat(( new_facts, new_fact.view(1,-1) ),0)
             elif p.data[0] > new_facts[indi_prev.data[0],-1].data[0]:
                 new_facts[indi_prev.data[0]] = new_fact
-            if new_facts.size()[0]>200:
-                _ , index = torch.topk(new_facts[:,-1], K)
-                index, _ = torch.sort(index)
-                new_facts = torch.index_select(new_facts, 0, index)
-            i += 1
-            if i%1000 == 0:
-                print(datetime.datetime.now())
+            # if new_facts.size()[0]>200:
+            #     _ , index = torch.topk(new_facts[:,-1], K)
+            #     index, _ = torch.sort(index)
+            #     new_facts = torch.index_select(new_facts, 0, index)
+            # i += 1
+            # if i%1000 == 0:
+            #     print(datetime.datetime.now())
+    print(new_facts.size())
     _ , index = torch.topk(new_facts[:,-1], K)
     index, _ = torch.sort(index)
     new_facts = torch.index_select(new_facts, 0, index)
@@ -91,17 +96,17 @@ def forward_step(facts):
 
 ####TRAINING
 #added params
-no_samples = 100
+no_samples = 3
 
-num_iters = 200
-learning_rate = .1
+num_iters = 1000
+learning_rate = .01
 drop=0
 
 steps = 1
 num_rules = 2
 epsilon=.001
 
-K = no_samples ##For top K
+K = 7 ##For top K
 
 #rules should be:
 #r1(x,y) <- r1(y,x)
@@ -122,22 +127,31 @@ for epoch in range(num_iters):
     core_rel = core_rel[:no_samples]
 
     core_rel = Variable(knowledge_pos[core_rel])
-    target = Variable(knowledge_pos[target])
+    target = Variable(knowledge_pos)
+    
     
     optimizer.zero_grad()
     facts = torch.cat((core_rel, Variable(torch.ones(core_rel.size()[0], 1))), 1)
+    
     for step in range(steps):
-        print('step',step)
         facts = forward_step(facts)
     loss = 0
     for targ in target:
         _, indi = torch.max(F.cosine_similarity(targ.view(1,-1).expand(facts[:,:-1].size()),facts[:,:-1]),0)
         indi=indi.data[0]
-        loss += criterion(facts[indi,:-1],targ)/(facts[indi,-1]+epsilon)
+        loss += criterion(facts[indi,:-1],targ)+(1-(facts[indi,-1]))
+        #remove fact from predicted facts
+        # if indi==0:
+        #     facts = facts[1:,:]
+        # elif indi+1 == facts.size()[0]:
+        #     facts = facts[:indi,:]
+        # else:
+        #     facts = torch.cat((facts[:indi,:],facts[indi+1:,:]),dim=0)
 
     print(epoch, 'losssssssssssssssssssss',loss.data[0])
     loss.backward()
     optimizer.step()
+    print(rules)
 
 
 
