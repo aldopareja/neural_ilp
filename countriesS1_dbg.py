@@ -60,6 +60,7 @@ def forward_step(facts):
         max_prev, indi_prev =torch.max(F.cosine_similarity(new_fact[:-1].repeat(new_facts.size()[0],1)
                                                            ,new_facts[:,:-1])
                                        ,dim=0)
+        set_trace()
         if max_prev.data[0] < 0.9: 
             new_facts = torch.cat((new_facts, new_fact.view(1,-1) ),0)
         elif p.data[0] > new_facts[indi_prev.data[0],-1].data[0]:
@@ -96,9 +97,13 @@ def forward_step(facts):
 
 ####TRAINING
 #added params
-no_samples = 3
+# core_rel = Variable(knowledge_pos[[0,1,4]])
+# target = Variable(knowledge_pos[[2,3]])
 
-num_iters = 1000
+core_rel = Variable(knowledge_pos)
+target = Variable(knowledge_pos)
+
+num_iters = 200
 learning_rate = .01
 drop=0
 
@@ -121,13 +126,13 @@ optimizer = torch.optim.Adam([
 criterion = torch.nn.MSELoss(size_average=False)
 
 for epoch in range(num_iters):
-    ##sampling
-    core_rel = torch.randperm(no_facts)
-    target = core_rel[no_samples:]
-    core_rel = core_rel[:no_samples]
+    # ##sampling
+    # core_rel = torch.randperm(no_facts)
+    # target = core_rel[no_samples:]
+    # core_rel = core_rel[:no_samples]
 
-    core_rel = Variable(knowledge_pos[core_rel])
-    target = Variable(knowledge_pos)
+    # core_rel = Variable(knowledge_pos[core_rel])
+    # target = Variable(knowledge_pos)
     
     
     optimizer.zero_grad()
@@ -151,7 +156,6 @@ for epoch in range(num_iters):
     print(epoch, 'losssssssssssssssssssss',loss.data[0])
     loss.backward()
     optimizer.step()
-    print(rules)
 
 
 
