@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import datetime
 from pudb import set_trace;
 
-with open('data/countries_s1_dbg') as f:
+with open('data/countries_s1') as f:
     facts = f.read().splitlines()
 facts = [el.split(',') for el in facts]
 preds = [fact[0] for fact in facts]
@@ -105,8 +105,9 @@ def forward_step(facts):
 # core_rel = Variable(knowledge_pos[[0,1,4]])
 # target = Variable(knowledge_pos[[2,3]])
 
-core_rel = Variable(knowledge_pos)
+
 target = Variable(knowledge_pos)
+no_samples = 100
 
 num_iters = 200
 learning_rate = .01
@@ -116,7 +117,7 @@ steps = 1
 num_rules = 2
 epsilon=.001
 
-K = 5 ##For top K
+K = 100 ##For top K
 
 #rules should be:
 #r1(x,y) <- r1(y,x)
@@ -132,11 +133,11 @@ criterion = torch.nn.MSELoss(size_average=False)
 
 for epoch in range(num_iters):
     # ##sampling
-    # core_rel = torch.randperm(no_facts)
+    core_rel = torch.randperm(no_facts)
     # target = core_rel[no_samples:]
-    # core_rel = core_rel[:no_samples]
+    core_rel = core_rel[:no_samples]
 
-    # core_rel = Variable(knowledge_pos[core_rel])
+    core_rel = Variable(knowledge_pos[core_rel])
     # target = Variable(knowledge_pos)
     optimizer.zero_grad()
     facts = torch.cat((core_rel, Variable(torch.ones(core_rel.size()[0], 1))), 1)
@@ -148,10 +149,10 @@ for epoch in range(num_iters):
         consequences = torch.cat((consequences,tmp),dim=0)
 
     loss = 0
-    for targ in target:
-        _, indi = torch.max(F.cosine_similarity(targ.view(1,-1).expand(consequences[:,:-1].size()),consequences[:,:-1]),0)
+    for cons in consequences:
+        _, indi = torch.max(F.cosine_similarity(cons[:-1].view(1,-1).expand(target.size()),target),0)
         indi=indi.data[0]
-        loss += criterion(consequences[indi,:-1],targ)+(1-(consequences[indi,-1]))
+        loss += criterion(cons[:-1],target[indi,:])+(1-(cons[-1]))
         #remove fact from predicted facts
         # if indi==0:
         #     facts = facts[1:,:]
