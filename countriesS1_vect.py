@@ -40,61 +40,66 @@ data_aux = knowledge_pos
 knowledge_pos = torch.cat((predicates[knowledge_pos[:,0]],
                            constants[knowledge_pos[:,1]],
                            constants[knowledge_pos[:,2]]),dim=1)
-print(knowledge_pos)
-print(idxToPreds)
-print(idxToCons)
+num_facts = knowledge_pos.size()[0]
+num_feats_per_fact = knowledge_pos.size()[1]
+print(num_facts,num_feats_per_fact)
+
+#helps removing repeated predicted facts -> same embeddings and constants, probably different scores
+#this is of complexity K^3, could be optimized
+def leaveTopK(preds,K):
+    _,idx = torch.sort(preds[:,-1],descending=True)
+    preds = preds[idx,:]
+    out = preds[0,:].unsqueeze(0)
+    for i in range(1,K):
+        t = preds[i,:].unsqueeze(0)
+        m,_ = torch.max(F.cosine_similarity(t[:,:-1].repeat(out.size()[0],1),out[:,:-1]),dim=0)
+        if m<1:
+            out = torch.cat((out,t),dim=0)
+    return out
 
 ####FORWARD CHAINING
+#input: some facts that can either be ground or predicted in previous steps
+#output: predicted facts in this specific step (outer loop must gather all of them)
+#computes the predictions of applying each rule to the facts, giving a score to each of them.
+#leaves only topK scoring fact for each applied rule (not for the whole thing)
 def forward_step(facts):
-    new_facts = facts.clone()
-    i = 0
-    for fact1 in facts:
-        #rule 0
-        p = fact1[-1].expand(1)
-        # b1 with the body of fact1
-        p = p*F.cosine_similarity(rules[0],fact1[:num_predicates],dim=0)
-        new_fact = torch.cat((rules[0],
-                              fact1[num_predicates+num_constants:-1],
-                              fact1[num_predicates:num_predicates+num_constants],
-                              p))
-        max_prev, indi_prev =torch.max(F.cosine_similarity(new_fact[:-1].repeat(new_facts.size()[0],1)
-                                                           ,new_facts[:,:-1])
-                                       ,dim=0)
-        set_trace()
-        if max_prev.data[0] < 0.9: 
-            new_facts = torch.cat((new_facts, new_fact.view(1,-1) ),0)
-        elif p.data[0] > new_facts[indi_prev.data[0],-1].data[0]:
-            new_facts[indi_prev.data[0]] = new_fact
-        for fact2 in facts:
-            #rule 1
-            rule = rules[1]
-            p = fact1[-1]*fact2[-1]
-            #body 1
-            p = p*F.cosine_similarity(rule[num_predicates:].view(1,-1), fact1[:num_predicates].view(1,-1))
-            #body 2
-            p = p*F.cosine_similarity(rule[num_predicates:].view(1,-1), fact2[:num_predicates].view(1,-1))
-            #enforce same shared constant
-            p = p*F.cosine_similarity(fact1[num_predicates+num_constants:-1].view(1,-1) , fact2[num_predicates:num_predicates+num_constants].view(1,-1))
-            new_fact = torch.cat((rule[:num_predicates], fact1[num_predicates:num_predicates+num_constants],\
-                                                         fact2[num_predicates+num_constants:-1], p), 0)
-            max_prev, indi_prev = torch.max(F.cosine_similarity(new_fact[:-1].view(1,-1).expand(new_facts[:,:-1].size()),new_facts[:,:-1]),0)
-            if max_prev.data[0] < 0.9: 
-                new_facts = torch.cat(( new_facts, new_fact.view(1,-1) ),0)
-            elif p.data[0] > new_facts[indi_prev.data[0],-1].data[0]:
-                new_facts[indi_prev.data[0]] = new_fact
-            # if new_facts.size()[0]>200:
-            #     _ , index = torch.topk(new_facts[:,-1], K)
-            #     index, _ = torch.sort(index)
-            #     new_facts = torch.index_select(new_facts, 0, index)
-            # i += 1
-            # if i%1000 == 0:
-            #     print(datetime.datetime.now())
-    print(new_facts.size())
-    _ , index = torch.topk(new_facts[:,-1], K)
-    index, _ = torch.sort(index)
-    new_facts = torch.index_select(new_facts, 0, index)
-    return new_facts
+    #rule 1
+    # b1(x,y)<-b1(y,x)
+    rule_expanded = rules[0].expand(facts[:,:num_predicates].size())
+    preds_r1 = F.cosine_similarity(rule_expanded,facts[:,:num_predicates],dim=1)
+    preds_r1 = preds_r1*facts[:,-1]
+    preds_r1 = preds_r1.unsqueeze(1)
+    preds_r1 = torch.cat((rule_expanded,
+                         facts[:,num_predicates+num_constants:-1],
+                         facts[:,num_predicates:num_predicates+num_constants],
+                         preds_r1),dim=1)
+    preds_r1 = leaveTopK(preds_r1,K)
+    #rule 2
+    # b1(x,y)<-b2(x,z),b2(z,y)
+    body1 = facts.repeat((1,num_facts)).view(-1,num_feats_per_fact+1)
+    body2 = facts.repeat((num_facts,1))
+    rule_expanded = rules[1].repeat(body1.size()[0],1)
+    #previous scores
+    preds_r2 = body1[:,-1]*body2[:,-1]
+    #predicate of body1 with predicate of rule
+    preds_r2 = preds_r2*F.cosine_similarity(rule_expanded[:,num_predicates:],body1[:,:num_predicates],dim=1)
+    #predicate of body2 with predicate of rule
+    preds_r2 = preds_r2*F.cosine_similarity(rule_expanded[:,num_predicates:],body2[:,:num_predicates],dim=1)
+    #similarity between shared constants
+    preds_r2 = preds_r2*F.cosine_similarity(body1[:,num_predicates+num_constants:-1],
+                                            body2[:,num_predicates:num_predicates+num_constants],dim=1)
+    preds_r2 = preds_r2.unsqueeze(1)
+    preds_r2 = torch.cat((rule_expanded[:,:num_predicates]
+                         ,body1[:,num_predicates:num_predicates+num_constants]
+                         ,body2[:,num_predicates+num_constants:-1]
+                         ,preds_r2)
+                        ,dim=1)
+    #removing repeated facts and leaving ones with highest score
+    preds_r2 = leaveTopK(preds_r2,K)
+    out = torch.cat((preds_r1,preds_r2),dim=0)
+    return out
 
+    
 ####TRAINING
 #added params
 # core_rel = Variable(knowledge_pos[[0,1,4]])
@@ -111,7 +116,7 @@ steps = 1
 num_rules = 2
 epsilon=.001
 
-K = 7 ##For top K
+K = 5 ##For top K
 
 #rules should be:
 #r1(x,y) <- r1(y,x)
@@ -133,18 +138,20 @@ for epoch in range(num_iters):
 
     # core_rel = Variable(knowledge_pos[core_rel])
     # target = Variable(knowledge_pos)
-    
-    
     optimizer.zero_grad()
     facts = torch.cat((core_rel, Variable(torch.ones(core_rel.size()[0], 1))), 1)
-    
-    for step in range(steps):
-        facts = forward_step(facts)
+    #will accumulate predictions separately to compare with target facts
+    consequences = forward_step(facts)
+    for step in range(1,steps):
+        tmp = torch.cat((consequences,facts),dim=0)
+        tmp = forward_step(tmp)
+        consequences = torch.cat((consequences,tmp),dim=0)
+
     loss = 0
     for targ in target:
-        _, indi = torch.max(F.cosine_similarity(targ.view(1,-1).expand(facts[:,:-1].size()),facts[:,:-1]),0)
+        _, indi = torch.max(F.cosine_similarity(targ.view(1,-1).expand(consequences[:,:-1].size()),consequences[:,:-1]),0)
         indi=indi.data[0]
-        loss += criterion(facts[indi,:-1],targ)+(1-(facts[indi,-1]))
+        loss += criterion(consequences[indi,:-1],targ)+(1-(consequences[indi,-1]))
         #remove fact from predicted facts
         # if indi==0:
         #     facts = facts[1:,:]
@@ -154,11 +161,12 @@ for epoch in range(num_iters):
         #     facts = torch.cat((facts[:indi,:],facts[indi+1:,:]),dim=0)
 
     print(epoch, 'losssssssssssssssssssss',loss.data[0])
+    print(rules)
     loss.backward()
     optimizer.step()
 
 
-
+    
 
 
 
