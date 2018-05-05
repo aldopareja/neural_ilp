@@ -88,7 +88,6 @@ def forward_step(facts):
     #similarity between shared constants
     preds_r2 = preds_r2*F.cosine_similarity(body1[:,num_predicates+num_constants:-1],
                                             body2[:,num_predicates:num_predicates+num_constants],dim=1)
-    print('p',preds_r2)
     preds_r2 = preds_r2.unsqueeze(1)
     preds_r2 = torch.cat((rule_expanded[:,:num_predicates]
                          ,body1[:,num_predicates:num_predicates+num_constants]
@@ -113,7 +112,7 @@ target = Variable(knowledge_pos[2]).unsqueeze(0)
 
 num_iters = 200
 learning_rate = .1
-lamb = 10
+lamb = 1000
 
 steps = 1
 num_rules = 2
@@ -154,21 +153,28 @@ for epoch in range(num_iters):
         tmp = torch.cat((consequences,facts),dim=0)
         tmp = forward_step(tmp)
         consequences = torch.cat((consequences,tmp),dim=0)
+    #LOSS
     loss = 0
-    for cons in consequences:
-        m, indi = torch.max(F.cosine_similarity(cons[:-1].view(1,-1).expand(target.size()),target),0)
-        indi=indi.data[0]
-        loss += torch.min(torch.stack((lamb*cons[-1],1-cons[-1]*m)))
-        print(m,cons[-1])
-        #remove fact from predicted facts
-        # if indi==0:
-        #     facts = facts[1:,:]
-        # elif indi+1 == facts.size()[0]:
-        #     facts = facts[:indi,:]
-        # else:
-        #     facts = torch.cat((facts[:indi,:],facts[indi+1:,:]),dim=0)
-    print(epoch, 'losssssssssssssssssssss',loss.data[0])
+    num_consequences = consequences.size()[0]
+    num_targets = target.size()[0]
+    #each consequence repeated by the number of targets
+    tmp_c = consequences.repeat(1,target.size()[0]).view(-1,num_feats_per_fact+1)
+    #all targets repeated number of consequences
+    tmp_t = target.repeat(num_consequences,1)
+    #for each consequence compute the similarity with all targets
+    sim = F.cosine_similarity(tmp_c[:,:num_predicates],target[:,:num_predicates],dim=1)
+    sim = sim * F.cosine_similarity(tmp_c[:,num_predicates:num_predicates+num_constants],
+                                    target[:,num_predicates:num_predicates+num_constants],dim=1)
+    sim = sim * F.cosine_similarity(tmp_c[:,num_predicates+num_constants:-1],
+                                    target[:,num_predicates+num_constants:],dim=1)
+    # sim = F.cosine_similarity(consequences[:,:-1],target)
+    #for each consequence, get the maximum simlarity with the set of targets
+    sim = sim.view(-1,num_targets)
+    m, _ = torch.max(sim,dim=1)
+    #the loss is min(lamb*p,1-p*m)
+    loss = torch.sum(torch.min(lamb*consequences[:,-1],1- consequences[:,-1]*m))
     print(rules)
+    print(epoch, 'losssssssssssssssssssss',loss.data[0])
     if loss < 10**-6:
         break
     loss.backward()
