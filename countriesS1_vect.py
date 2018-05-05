@@ -110,7 +110,7 @@ target = Variable(knowledge_pos[2]).unsqueeze(0)
 # target = Variable(knowledge_pos)
 # no_samples = 100
 
-num_iters = 200
+num_iters = 2000
 learning_rate = .1
 drop=0
 
@@ -123,10 +123,10 @@ K = 4 ##For top K
 #rules should be:
 #r1(x,y) <- r1(y,x)
 #r1(x,y) <- r2(x,z),r2(z,x)
-# rules = [Variable(torch.rand(num_predicates), requires_grad=True),
-#          Variable(torch.rand(2*num_predicates), requires_grad=True)]
 rules = [Variable(torch.rand(num_predicates), requires_grad=True),
-         Variable(torch.Tensor([1, 1]), requires_grad=True)]
+         Variable(torch.rand(2*num_predicates), requires_grad=True)]
+# rules = [Variable(torch.rand(num_predicates), requires_grad=True),
+#          Variable(torch.Tensor([1, 1]), requires_grad=True)]
 
 
 optimizer = torch.optim.Adam([
@@ -155,7 +155,7 @@ for epoch in range(num_iters):
     for cons in consequences:
         m, indi = torch.max(F.cosine_similarity(cons[:-1].view(1,-1).expand(target.size()),target),0)
         indi=indi.data[0]
-        loss += criterion(cons[:num_predicates],target[indi,:num_predicates]) + (1-cons[-1])*m
+        loss += (criterion(cons[:num_predicates],target[indi,:num_predicates])+epsilon)*m/ (cons[-1]+epsilon)
         #remove fact from predicted facts
         # if indi==0:
         #     facts = facts[1:,:]
