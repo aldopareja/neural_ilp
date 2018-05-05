@@ -88,6 +88,7 @@ def forward_step(facts):
     #similarity between shared constants
     preds_r2 = preds_r2*F.cosine_similarity(body1[:,num_predicates+num_constants:-1],
                                             body2[:,num_predicates:num_predicates+num_constants],dim=1)
+    print('p',preds_r2)
     preds_r2 = preds_r2.unsqueeze(1)
     preds_r2 = torch.cat((rule_expanded[:,:num_predicates]
                          ,body1[:,num_predicates:num_predicates+num_constants]
@@ -110,9 +111,9 @@ target = Variable(knowledge_pos[2]).unsqueeze(0)
 # target = Variable(knowledge_pos)
 # no_samples = 100
 
-num_iters = 2000
+num_iters = 200
 learning_rate = .1
-drop=0
+lamb = 10
 
 steps = 1
 num_rules = 2
@@ -136,6 +137,8 @@ optimizer = torch.optim.Adam([
 criterion = torch.nn.MSELoss(size_average=False)
 
 for epoch in range(num_iters):
+    for par in optimizer.param_groups:
+        par['params'][1].data.clamp_(min=0.,max=1.)
     # # ##sampling
     # core_rel = torch.randperm(no_facts)
     # # target = core_rel[no_samples:]
@@ -155,7 +158,8 @@ for epoch in range(num_iters):
     for cons in consequences:
         m, indi = torch.max(F.cosine_similarity(cons[:-1].view(1,-1).expand(target.size()),target),0)
         indi=indi.data[0]
-        loss += (criterion(cons[:num_predicates],target[indi,:num_predicates])+epsilon)*m/ (cons[-1]+epsilon)
+        loss += torch.min(torch.stack((lamb*cons[-1],1-cons[-1]*m)))
+        print(m,cons[-1])
         #remove fact from predicted facts
         # if indi==0:
         #     facts = facts[1:,:]
@@ -163,9 +167,10 @@ for epoch in range(num_iters):
         #     facts = facts[:indi,:]
         # else:
         #     facts = torch.cat((facts[:indi,:],facts[indi+1:,:]),dim=0)
-
     print(epoch, 'losssssssssssssssssssss',loss.data[0])
     print(rules)
+    if loss < 10**-6:
+        break
     loss.backward()
     optimizer.step()
 

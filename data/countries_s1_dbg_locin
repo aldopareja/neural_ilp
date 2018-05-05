@@ -1,3 +1,5 @@
 locatedIn,palau,micronesia
 locatedIn,palau,oceania
 locatedIn,micronesia,oceania
+neighborOf,netherlands,germany
+neighborOf,germany,netherlands
