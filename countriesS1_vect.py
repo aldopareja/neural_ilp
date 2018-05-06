@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import datetime
 from pudb import set_trace;
 
-with open('data/countries_s1_dbg_locin') as f:
+with open('data/countries_s1_dbg') as f:
     facts = f.read().splitlines()
 facts = [el.split(',') for el in facts]
 preds = [fact[0] for fact in facts]
@@ -42,6 +42,7 @@ knowledge_pos = torch.cat((predicates[knowledge_pos[:,0]],
                            constants[knowledge_pos[:,2]]),dim=1)
 num_facts = knowledge_pos.size()[0]
 num_feats_per_fact = knowledge_pos.size()[1]
+print(knowledge_pos)
 
 #helps removing repeated predicted facts -> same embeddings and constants, probably different scores
 #this is of complexity K^3, could be optimized
@@ -65,15 +66,17 @@ def forward_step(facts):
     num_facts = facts.size()[0]
     #rule 1
     # b1(x,y)<-b1(y,x)
-    # rule_expanded = rules[0].expand(facts[:,:num_predicates].size())
-    # preds_r1 = F.cosine_similarity(rule_expanded,facts[:,:num_predicates],dim=1)
-    # preds_r1 = preds_r1*facts[:,-1]
-    # preds_r1 = preds_r1.unsqueeze(1)
-    # preds_r1 = torch.cat((rule_expanded,
-    #                      facts[:,num_predicates+num_constants:-1],
-    #                      facts[:,num_predicates:num_predicates+num_constants],
-    #                      preds_r1),dim=1)
-    # preds_r1 = leaveTopK(preds_r1,K)
+    rule_expanded = rules[0].expand(facts[:,:num_predicates].size())
+    preds_r1 = F.cosine_similarity(rule_expanded,facts[:,:num_predicates],dim=1)
+    preds_r1 = preds_r1*facts[:,-1]
+    preds_r1 = preds_r1.unsqueeze(1)
+    preds_r1 = torch.cat((rule_expanded,
+                         facts[:,num_predicates+num_constants:-1],
+                         facts[:,num_predicates:num_predicates+num_constants],
+                         preds_r1),dim=1)
+    # print(preds_r1)
+
+    preds_r1 = leaveTopK(preds_r1,K)
     #rule 2
     # b1(x,y)<-b2(x,z),b2(z,y)
     body1 = facts.repeat((1,num_facts)).view(-1,num_feats_per_fact+1)
@@ -96,23 +99,23 @@ def forward_step(facts):
                         ,dim=1)
     #removing repeated facts and leaving ones with highest score
     preds_r2 = leaveTopK(preds_r2,K)
-    # out = torch.cat((preds_r1,preds_r2),dim=0)
-    # return out
-    return preds_r2
+    out = torch.cat((preds_r1,preds_r2),dim=0)
+    return out
+    # return preds_r2
 
     
 ####TRAINING
 #dbg -> cherrypicked
-core_rel = Variable(knowledge_pos[[0,1]])
-target = Variable(knowledge_pos[2]).unsqueeze(0)
-
+# core_rel = Variable(knowledge_pos[[0,1,3]])
+# target = Variable(knowledge_pos[2]).unsqueeze(0)
+# target = Variable(knowledge_pos[[2,4],:])
 #####sampling
-# target = Variable(knowledge_pos)
-# no_samples = 100
+target = Variable(knowledge_pos)
+no_samples = 5
 
 num_iters = 200
 learning_rate = .1
-lamb = 1000
+lamb = 3
 
 steps = 1
 num_rules = 2
@@ -138,12 +141,13 @@ criterion = torch.nn.MSELoss(size_average=False)
 for epoch in range(num_iters):
     for par in optimizer.param_groups:
         par['params'][1].data.clamp_(min=0.,max=1.)
+        par['params'][0].data.clamp_(min=0.,max=1.)
     # # ##sampling
-    # core_rel = torch.randperm(no_facts)
+    core_rel = torch.randperm(no_facts)
     # # target = core_rel[no_samples:]
-    # core_rel = core_rel[:no_samples]
+    core_rel = core_rel[:no_samples]
 
-    # core_rel = Variable(knowledge_pos[core_rel])
+    core_rel = Variable(knowledge_pos[core_rel])
     # target = Variable(knowledge_pos)
     optimizer.zero_grad()
     facts = torch.cat((core_rel, Variable(torch.ones(core_rel.size()[0], 1))), 1)
@@ -157,16 +161,19 @@ for epoch in range(num_iters):
     loss = 0
     num_consequences = consequences.size()[0]
     num_targets = target.size()[0]
+    print(num_targets)
     #each consequence repeated by the number of targets
     tmp_c = consequences.repeat(1,target.size()[0]).view(-1,num_feats_per_fact+1)
     #all targets repeated number of consequences
     tmp_t = target.repeat(num_consequences,1)
+    print(tmp_c.size())
+    print(tmp_t.size())
     #for each consequence compute the similarity with all targets
-    sim = F.cosine_similarity(tmp_c[:,:num_predicates],target[:,:num_predicates],dim=1)
+    sim = F.cosine_similarity(tmp_c[:,:num_predicates],tmp_t[:,:num_predicates],dim=1)
     sim = sim * F.cosine_similarity(tmp_c[:,num_predicates:num_predicates+num_constants],
-                                    target[:,num_predicates:num_predicates+num_constants],dim=1)
+                                    tmp_t[:,num_predicates:num_predicates+num_constants],dim=1)
     sim = sim * F.cosine_similarity(tmp_c[:,num_predicates+num_constants:-1],
-                                    target[:,num_predicates+num_constants:],dim=1)
+                                    tmp_t[:,num_predicates+num_constants:],dim=1)
     # sim = F.cosine_similarity(consequences[:,:-1],target)
     #for each consequence, get the maximum simlarity with the set of targets
     sim = sim.view(-1,num_targets)
