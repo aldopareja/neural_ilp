@@ -1,0 +1,5 @@
+lamb 1
+loss tensor(11.)
+rules [tensor([ 1.0000,  0.0000,  0.7164,  0.0000]), tensor([ 0.8391,  0.0000,  1.0000,  0.0000,  1.0000,  0.0000])]
+suc_neigh False
+suc_locIn True
