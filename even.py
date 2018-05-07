@@ -163,5 +163,3 @@ for i in range(num_iters):
     print(i, 'lossssssssssssssssssssssssssss', loss.data[0])
     loss.backward()
     optimizer.step()
-
-
