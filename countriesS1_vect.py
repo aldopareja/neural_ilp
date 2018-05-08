@@ -66,7 +66,7 @@ def leaveTopK(preds,K):
 def forward_step(facts):
     num_facts = facts.size()[0]
     #rule 1
-    # b1(x,y)<-b1(y,x)
+    # b1(x,y)<-b2(y,x)
     rule_expanded = rules[0].repeat(num_facts,1)
     preds_r1 = F.cosine_similarity(rule_expanded[:,num_predicates:],facts[:,:num_predicates],dim=1)
     preds_r1 = preds_r1*facts[:,-1]
@@ -79,7 +79,7 @@ def forward_step(facts):
 
     preds_r1 = leaveTopK(preds_r1,K)
     #rule 2
-    # b1(x,y)<-b2(x,z),b2(z,y)
+    #b1(x,y)<-b2(x,z),b3(z,y)
     body1 = facts.repeat((1,num_facts)).view(-1,num_feats_per_fact+1)
     body2 = facts.repeat((num_facts,1))
     rule_expanded = rules[1].repeat(body1.size()[0],1)
