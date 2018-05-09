@@ -140,6 +140,9 @@ num_rules = 2
 epsilon=.001
 
 K = 30 ##For top K
+#Find maximum similarity for each consequence in the set of facts contained in target
+#if testing is true it finds the consequence with maximum similarity for each target
+#if testing is true, returns the truth value of the matched predicted consequence for each target
 #Inputs: 
 #consequences: facts to be looked for maximum similarities across target
 #target: set of facts that are assumed to be true
@@ -240,6 +243,7 @@ with open('test_acc_s1','w') as f:
         f.write('rules '+str(rules)+'\n')
         f.write('suc_neigh '+str(suc_neigh)+'\n')
         f.write('suc_locIn '+str(suc_locIn)+'\n')
+
         #computing test results
         print('computing test results')
         K_tmp = 500
@@ -258,6 +262,7 @@ with open('test_acc_s1','w') as f:
         accuracies.append(ts_accuracy)
         f.write('ts_accuracy '+str(ts_accuracy)+'\n')
         f.flush()
+        
     f.write('#############RESULTS###############'+'\n')
     f.write('lamb '+str(lamb)+'\n')
     f.write('suc_rate_neigh '+str(suc_rate_neigh)+'\n')

@@ -1,5 +1,0 @@
-lamb 1
-loss tensor(0.)
-rules [tensor([ 0.,  1.]), tensor([ 1.,  0.,  1.,  0.])]
-suc_neigh True
-suc_locIn True
