@@ -1,0 +1,6 @@
+lamb 1
+train_loss tensor(1.00000e-02 *
+       8.3023)
+rules [tensor([ 0.,  1.,  0.,  1.]), tensor([ 0.,  1.,  1.,  0.,  0.,  1.]), tensor([ 1.3708, -0.0543,  1.7146, -0.3072,  1.4452, -0.2296])]
+suc_neigh True
+suc_locIn False
