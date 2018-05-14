@@ -1,41 +1,77 @@
-lamb 1
-train_loss tensor(6.7017)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
+initial random rules[tensor([ 0.0944,  0.7670,  0.4750,  0.1753]), tensor([ 0.3204,  0.3315,  0.9766,  0.2711,  0.5331,  0.2151])]
+lamb 1000
+train_loss tensor(127.0293)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
 suc_neigh True
 suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(9.1550)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
-suc_neigh True
-suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(9.4594)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
-suc_neigh True
-suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(5.2147)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
-suc_neigh True
-suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(9.0929)
-rules [tensor([ 0.0097,  0.9324,  0.0438,  0.9562]), tensor([ 0.1481,  0.9022,  0.9990,  0.0008,  0.0670,  0.9317])]
+ts_accuracy 0.4583333333333333
+initial random rules[tensor([ 0.2333,  0.1124,  0.0624,  0.5492]), tensor([ 0.3156,  0.7737,  0.8020,  0.3168,  0.0440,  0.5598])]
+lamb 1000
+train_loss tensor(130.0226)
+rules [tensor([ 0.0816,  0.8841,  0.0524,  0.9445]), tensor([ 0.0560,  0.9364,  0.0682,  0.9045,  0.0556,  0.9434])]
 suc_neigh True
 suc_locIn False
 ts_accuracy 0.0
-lamb 1
-train_loss tensor(9.4967)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
-suc_neigh True
-suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(9.6706)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.1000,  0.9000,  0.9000,  0.1000,  0.1000,  0.9000])]
+initial random rules[tensor([ 0.1467,  0.6185,  0.2235,  0.6599]), tensor([ 0.7112,  0.1075,  0.0199,  0.6233,  0.0503,  0.1502])]
+lamb 1000
+train_loss tensor(138.8226)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.1000,  0.9000,  0.1000,  0.9000,  0.1000,  0.9000])]
 suc_neigh True
 suc_locIn False
+ts_accuracy 0.0
+initial random rules[tensor([ 0.2527,  0.4438,  0.4241,  0.8842]), tensor([ 0.3260,  0.8779,  0.4299,  0.8503,  0.2777,  0.7530])]
+lamb 1000
+train_loss tensor(107.9512)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.1000,  0.9000,  0.1000,  0.9000,  0.1000,  0.9000])]
+suc_neigh True
+suc_locIn False
+ts_accuracy 0.0
+initial random rules[tensor([ 0.6857,  0.0500,  0.2726,  0.0004]), tensor([ 0.8283,  0.3439,  0.3437,  0.2905,  0.2841,  0.7524])]
+lamb 1000
+train_loss tensor(138.8396)
+rules [tensor([ 0.9000,  0.1000,  0.9000,  0.1000]), tensor([ 0.1000,  0.9000,  0.1000,  0.9000,  0.1000,  0.9000])]
+suc_neigh False
+suc_locIn False
+ts_accuracy 0.0
+initial random rules[tensor([ 0.5190,  0.1429,  0.0751,  0.6805]), tensor([ 0.4556,  0.8563,  0.4790,  0.2458,  0.0996,  0.9208])]
+lamb 1000
+train_loss tensor(157.5606)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.1000,  0.9000,  0.1000,  0.9000,  0.1000,  0.9000])]
+suc_neigh True
+suc_locIn False
+ts_accuracy 0.0
+initial random rules[tensor([ 0.7642,  0.8462,  0.0383,  0.2568]), tensor([ 0.9451,  0.7075,  0.7971,  0.6162,  0.4390,  0.4647])]
+lamb 1000
+train_loss tensor(121.1266)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 0.4583333333333333
+initial random rules[tensor([ 0.6166,  0.4007,  0.8866,  0.1090]), tensor([ 0.4024,  0.1585,  0.5202,  0.9298,  0.1841,  0.1136])]
+lamb 1000
+train_loss tensor(100.4311)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 0.4583333333333333
+initial random rules[tensor([ 0.4617,  0.6482,  0.2473,  0.0271]), tensor([ 0.1304,  0.7175,  0.1735,  0.2384,  0.9167,  0.0442])]
+lamb 1000
+train_loss tensor(114.1818)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 0.4583333333333333
+initial random rules[tensor([ 0.4727,  0.7513,  0.5525,  0.3632]), tensor([ 0.7663,  0.9704,  0.9064,  0.5115,  0.7956,  0.0226])]
+lamb 1000
+train_loss tensor(124.0659)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 0.4583333333333333
+#############RESULTS###############
+lamb 1000
+suc_rate_neigh 9
+suc_rate_locin 5
+mean accuracy 0.22916666666666666
+std accuracy 0.22916666666666666
+####################################

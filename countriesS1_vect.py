@@ -179,17 +179,17 @@ def forward_step(facts,K):
 # target = Variable(knowledge_pos[[2,4],:])
 #####sampling
 target = Variable(knowledge_pos)
-no_samples = 50
+no_samples = 200
 
 num_iters = 100
-learning_rate = .1
-lamb = 1
+learning_rate = .05
+lamb = 1000
 
-steps = 2
+steps = 1
 num_rules = 2
 epsilon=.001
 
-K = 30 ##For top K
+K = 100 ##For top K
 #Find maximum similarity for each consequence in the set of facts contained in target
 #if testing is true it finds the consequence with maximum similarity for each target
 #if testing is true, returns the truth value of the matched predicted consequence for each target
@@ -227,7 +227,12 @@ def find_max_similarities(consequences,target,testing=False):
         sim = torch.zeros_like(sim)
     else:
         sim[non_zero] = sim[non_zero] * F.cosine_similarity(tmp_c[non_zero,:num_predicates] ,tmp_t[non_zero,:num_predicates],dim=1)
-    
+
+    non_zero = sim.nonzero().squeeze()
+    if non_zero.size()[0]==0:
+        sim = torch.zeros_like(sim)
+    else:
+        sim[non_zero] = sim[non_zero] * tmp_c[non_zero,-1]
     #for each consequence/target, get the maximum simlarity with the set of targets/consequences
     if testing:
         sim = sim.view(-1,num_consequences)
@@ -241,7 +246,7 @@ def find_max_similarities(consequences,target,testing=False):
 
 #hyperparameter search
 # lambdas = [1,2,5,0.3,0.8]
-with open('test_acc_s1_neigh_sample','w') as f:
+with open('test_acc_s1_neigh_sample_one_step','w') as f:
     # for lamb in lambdas:
     suc_rate_neigh = 0
     suc_rate_locin = 0
@@ -253,6 +258,7 @@ with open('test_acc_s1_neigh_sample','w') as f:
         #r1(x,y) <- r2(x,z),r3(z,x)
         rules = [Variable(torch.rand(2*num_predicates), requires_grad=True),
                  Variable(torch.rand(3*num_predicates), requires_grad=True)]
+        f.write('initial random rules' + str(rules) +'\n')
         # rules = [Variable(torch.rand(num_predicates), requires_grad=True),
         #          Variable(torch.Tensor([1, 1]), requires_grad=True)]
         optimizer = torch.optim.Adam([
@@ -284,10 +290,10 @@ with open('test_acc_s1_neigh_sample','w') as f:
                 consequences = torch.cat((consequences,tmp),dim=0)
             #LOSS
             loss = 0
-            m = find_max_similarities(consequences,target)
-            loss = torch.sum(lamb*consequences[:,-1]*(1 - consequences[:,-1]*m))
+            m,matches = find_max_similarities(consequences,core_rel,testing=True)
+            print()
+            loss = torch.sum(torch.min(lamb*matches,1 - matches*m))
             print(epoch, 'losssssssssssssssssssss',loss.data[0])
-            # print(sum([torch.sum(rules_tmp[i]-rules[i]) for i in range(num_rules)]))
             if loss < 10**-6 or sum([torch.sum(torch.abs(rules_tmp[i]-rules[i])) for i in range(num_rules)])<10**-5:
                 break
             rules_tmp = [r.clone() for r in rules]
