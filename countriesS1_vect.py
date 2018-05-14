@@ -170,26 +170,6 @@ def forward_step(facts,K):
     print("fws took %s" % (time.time() - start_time))
     return out
     # return preds_r2
-
-    
-####TRAINING
-#dbg -> cherrypicked
-# core_rel = Variable(knowledge_pos[[0,1,3]])
-# target = Variable(knowledge_pos[2]).unsqueeze(0)
-# target = Variable(knowledge_pos[[2,4],:])
-#####sampling
-target = Variable(knowledge_pos)
-no_samples = 50
-
-num_iters = 100
-learning_rate = .1
-lamb = 1
-
-steps = 2
-num_rules = 2
-epsilon=.001
-
-K = 30 ##For top K
 #Find maximum similarity for each consequence in the set of facts contained in target
 #if testing is true it finds the consequence with maximum similarity for each target
 #if testing is true, returns the truth value of the matched predicted consequence for each target
@@ -239,6 +219,26 @@ def find_max_similarities(consequences,target,testing=False):
         return m, tmp_c[idx,-1]
     return m
 
+    
+####TRAINING
+#dbg -> cherrypicked
+# core_rel = Variable(knowledge_pos[[0,1,3]])
+# target = Variable(knowledge_pos[2]).unsqueeze(0)
+# target = Variable(knowledge_pos[[2,4],:])
+#####sampling
+target = Variable(knowledge_pos)
+no_samples = 50
+
+num_iters = 100
+learning_rate = .1
+lamb = 1
+
+steps = 2
+num_rules = 2
+epsilon=.001
+
+K = 30 ##For top K
+
 #hyperparameter search
 # lambdas = [1,2,5,0.3,0.8]
 with open('test_acc_s1_neigh_sample','w') as f:
@@ -255,6 +255,7 @@ with open('test_acc_s1_neigh_sample','w') as f:
                  Variable(torch.rand(3*num_predicates), requires_grad=True)]
         # rules = [Variable(torch.rand(num_predicates), requires_grad=True),
         #          Variable(torch.Tensor([1, 1]), requires_grad=True)]
+        f.write('random_rules' + str(rules) + '\n')
         optimizer = torch.optim.Adam([
                 {'params': rules}], 
                 lr = learning_rate)
@@ -266,10 +267,6 @@ with open('test_acc_s1_neigh_sample','w') as f:
             for par in optimizer.param_groups:
                 par['params'][1].data.clamp_(min=0.1,max=0.9)
                 par['params'][0].data.clamp_(min=0.1,max=0.9)
-            # ##sampling
-            core_rel = torch.randperm(no_facts)
-            # # target = core_rel[no_samples:]
-            core_rel = core_rel[:no_samples]
 
             # core_rel = Variable(knowledge_pos[core_rel])
             core_rel = sample_neighbors(no_samples,data)

@@ -1,41 +1,48 @@
 lamb 1
-train_loss tensor(6.7017)
+train_loss tensor(8.7713)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 0.4583333333333333
+lamb 1
+train_loss tensor(9.3976)
 rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
 suc_neigh True
 suc_locIn True
 ts_accuracy 1.0
 lamb 1
-train_loss tensor(9.1550)
+train_loss tensor(5.6261)
 rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
 suc_neigh True
 suc_locIn True
 ts_accuracy 1.0
 lamb 1
-train_loss tensor(9.4594)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
-suc_neigh True
-suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(5.2147)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
-suc_neigh True
-suc_locIn True
-ts_accuracy 1.0
-lamb 1
-train_loss tensor(9.0929)
-rules [tensor([ 0.0097,  0.9324,  0.0438,  0.9562]), tensor([ 0.1481,  0.9022,  0.9990,  0.0008,  0.0670,  0.9317])]
+train_loss tensor(11.4150)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.1000,  0.9000,  0.9000,  0.1000,  0.1000,  0.9000])]
 suc_neigh True
 suc_locIn False
 ts_accuracy 0.0
 lamb 1
-train_loss tensor(9.4967)
+train_loss tensor(6.0529)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.1000,  0.9000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 0.4583333333333333
+lamb 1
+train_loss tensor(6.2698)
 rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
 suc_neigh True
 suc_locIn True
 ts_accuracy 1.0
 lamb 1
-train_loss tensor(9.6706)
-rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.1000,  0.9000,  0.9000,  0.1000,  0.1000,  0.9000])]
+train_loss tensor(11.6706)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
 suc_neigh True
-suc_locIn False
+suc_locIn True
+ts_accuracy 1.0
+lamb 1
+train_loss tensor(8.5127)
+rules [tensor([ 0.1000,  0.9000,  0.1000,  0.9000]), tensor([ 0.9000,  0.1000,  0.9000,  0.1000,  0.9000,  0.1000])]
+suc_neigh True
+suc_locIn True
+ts_accuracy 1.0
