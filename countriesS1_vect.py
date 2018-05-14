@@ -61,44 +61,6 @@ test = torch.cat((predicates[test[:,0]],
                    constants[test[:,1]],
                    constants[test[:,2]]),dim=1)
 
-#sample num_samples as a connected subgraph of the input data
-#   basically, perform num_samples steps, each adding one more fact
-#   that is connected to at least one constant in the sample
-#data: a tensor of the form num_preds,num_cons,num_cons where a 1
-#   means that the fact composed of pred,cons1,cons2 is true
-#num_samples: number of samples to be gotten
-#returns sample: a tensor of the form num_samples*num_feats_per_fact
-def sample_neighbors(num_samples,data):
-    data_source_tmp = data.clone()
-    data_tmp = torch.zeros_like(data)
-    sample = torch.zeros(0,num_feats_per_fact,dtype=torch.long)
-    #choose one random constant
-    idx = torch.randperm(num_constants)[0].unsqueeze(0)
-    for _ in range(num_samples):
-    #     print('data_source',data_source_tmp)
-        #subset your possible choices to where idx is subject or object
-        data_tmp[:,idx,:] = data_source_tmp[:,idx,:]
-        data_tmp[:,:,idx] = data_source_tmp[:,:,idx]
-        #choose one at random
-        new_fact = data_tmp.nonzero()
-        if new_fact.size()[0] == 0:
-            break
-        chosen = torch.randperm(new_fact.size()[0])[0]
-        new_fact = new_fact[chosen,:].unsqueeze(0)
-        #add fact to sample
-        sample = torch.cat((sample,new_fact),dim=0)
-        #set chosen fact to zero (avoiding choosing it again)
-        data_source_tmp[new_fact[:,0],new_fact[:,1],new_fact[:,2]] = 0
-        #add new idx in the fact
-        idx = torch.cat((idx,new_fact[:,1],new_fact[:,2]))
-        idx = torch.unique(idx)
-    sample = torch.cat((predicates[sample[:,0]],
-                        constants[sample[:,1]],
-                        constants[sample[:,2]]),dim=1)
-    return sample
-
-
-
 
 #helps removing repeated predicted facts -> same embeddings and constants, probably different scores
 #this is of complexity K^3, could be optimized
@@ -108,8 +70,6 @@ def leaveTopK(preds,K):
     out = preds[0,:].unsqueeze(0)
     for i in range(1,min(K,preds.size()[0])):
         t = preds[i,:].unsqueeze(0)
-        if t[:,-1] == 0:
-            break
         m,_ = torch.max(F.cosine_similarity(t[:,:-1].repeat(out.size()[0],1),out[:,:-1],dim=1),dim=0)
         if m<1:
             out = torch.cat((out,t),dim=0)
@@ -270,15 +230,14 @@ with open('test_acc_s1_neigh_sample_one_step','w') as f:
         rules_tmp = [torch.zeros_like(rule) for rule in rules]
         for epoch in range(num_iters):
             for par in optimizer.param_groups:
-                par['params'][1].data.clamp_(min=0.1,max=0.9)
-                par['params'][0].data.clamp_(min=0.1,max=0.9)
-            # ##sampling
+                par['params'][1].data.clamp_(min=0.,max=1.)
+                par['params'][0].data.clamp_(min=0.,max=1.)
+            # # ##sampling
             core_rel = torch.randperm(no_facts)
             # # target = core_rel[no_samples:]
             core_rel = core_rel[:no_samples]
 
-            # core_rel = Variable(knowledge_pos[core_rel])
-            core_rel = sample_neighbors(no_samples,data)
+            core_rel = Variable(knowledge_pos[core_rel])
             # target = Variable(knowledge_pos)
             optimizer.zero_grad()
             facts = torch.cat((core_rel, Variable(torch.ones(core_rel.size()[0], 1))), 1)
@@ -299,7 +258,6 @@ with open('test_acc_s1_neigh_sample_one_step','w') as f:
             rules_tmp = [r.clone() for r in rules]
             loss.backward()
             optimizer.step()
-            print(rules)
 
         suc_neigh, suc_locIn = False,False
         if F.cosine_similarity(rules[0],torch.Tensor([0,1,0,1]),dim=0)>0.5:
@@ -333,7 +291,7 @@ with open('test_acc_s1_neigh_sample_one_step','w') as f:
         accuracies.append(ts_accuracy)
         f.write('ts_accuracy '+str(ts_accuracy)+'\n')
         f.flush()
-
+        
     f.write('#############RESULTS###############'+'\n')
     f.write('lamb '+str(lamb)+'\n')
     f.write('suc_rate_neigh '+str(suc_rate_neigh)+'\n')
