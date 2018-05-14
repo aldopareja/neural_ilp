@@ -2,8 +2,8 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
-import datetime
 from pudb import set_trace;
+import time
 
 with open('data/countries_s1') as f:
     facts = f.read().splitlines()
@@ -106,7 +106,7 @@ def leaveTopK(preds,K):
     _,idx = torch.sort(preds[:,-1],descending=True)
     preds = preds[idx,:]
     out = preds[0,:].unsqueeze(0)
-    for i in range(1,K):
+    for i in range(1,min(K,preds.size()[0])):
         t = preds[i,:].unsqueeze(0)
         if t[:,-1] == 0:
             break
@@ -124,6 +124,7 @@ def forward_step(facts,K):
     num_facts = facts.size()[0]
     #rule 1
     # b1(x,y)<-b2(y,x)
+    start_time = time.time()
     rule_expanded = rules[0].repeat(num_facts,1)
     preds_r1 = F.cosine_similarity(rule_expanded[:,num_predicates:],facts[:,:num_predicates],dim=1)
     preds_r1 = preds_r1*facts[:,-1]
@@ -133,8 +134,8 @@ def forward_step(facts,K):
                          facts[:,num_predicates:num_predicates+num_constants],
                          preds_r1),dim=1)
     # print(preds_r1)
-
     preds_r1 = leaveTopK(preds_r1,K)
+    
     #rule 2
     #b1(x,y)<-b2(x,z),b3(z,y)
     body1 = facts.repeat((1,num_facts)).view(-1,num_feats_per_fact+1)
@@ -142,13 +143,21 @@ def forward_step(facts,K):
     rule_expanded = rules[1].repeat(body1.size()[0],1)
     #previous scores
     preds_r2 = body1[:,-1]*body2[:,-1]
+    #similarity between shared constants
+    preds_r2 = preds_r2*F.cosine_similarity(body1[:,num_predicates+num_constants:-1],
+                                            body2[:,num_predicates:num_predicates+num_constants],dim=1)
+    #remove 0 scores to improve speed - if constant isn't shared we don't compute anything else
+    non_zero = preds_r2.nonzero().squeeze()
+    preds_r2 = preds_r2[non_zero]
+    rule_expanded = rule_expanded[non_zero,:]
+    body1 = body1[non_zero,:]
+    body2 = body2[non_zero,:]
+    
     #predicate of body1 with predicate of rule
     preds_r2 = preds_r2*F.cosine_similarity(rule_expanded[:,num_predicates:2*num_predicates],body1[:,:num_predicates],dim=1)
     #predicate of body2 with predicate of rule
     preds_r2 = preds_r2*F.cosine_similarity(rule_expanded[:,2*num_predicates:],body2[:,:num_predicates],dim=1)
-    #similarity between shared constants
-    preds_r2 = preds_r2*F.cosine_similarity(body1[:,num_predicates+num_constants:-1],
-                                            body2[:,num_predicates:num_predicates+num_constants],dim=1)
+    
     preds_r2 = preds_r2.unsqueeze(1)
     preds_r2 = torch.cat((rule_expanded[:,:num_predicates]
                          ,body1[:,num_predicates:num_predicates+num_constants]
@@ -158,8 +167,57 @@ def forward_step(facts,K):
     #removing repeated facts and leaving ones with highest score
     preds_r2 = leaveTopK(preds_r2,K)
     out = torch.cat((preds_r1,preds_r2),dim=0)
+    print("fws took %s" % (time.time() - start_time))
     return out
     # return preds_r2
+#Find maximum similarity for each consequence in the set of facts contained in target
+#if testing is true it finds the consequence with maximum similarity for each target
+#if testing is true, returns the truth value of the matched predicted consequence for each target
+#Inputs: 
+#consequences: facts to be looked for maximum similarities across target
+#target: set of facts that are assumed to be true
+#testing: returns the probabilities of matched facts, a prediction is considered true if p>0.5
+def find_max_similarities(consequences,target,testing=False):
+    start_time = time.time()    
+    num_consequences = consequences.size()[0]
+    num_targets = target.size()[0]
+
+    #each consequence repeated by the number of targets
+    if testing:
+        #for each target find max similarity across consequences
+        tmp_c = consequences.repeat(num_targets,1)
+        tmp_t = target.repeat(1,num_consequences).view(-1,num_feats_per_fact)
+    else:
+        #for each consequence compute the similarity with all targets
+        tmp_c = consequences.repeat(1,num_targets).view(-1,num_feats_per_fact+1)
+        tmp_t = target.repeat(num_consequences,1)
+
+    sim = F.cosine_similarity(tmp_c[:,num_predicates:num_predicates+num_constants],
+                              tmp_t[:,num_predicates:num_predicates+num_constants],dim=1)
+    #only compute for non-zero values to speed up
+    non_zero = sim.nonzero().squeeze()
+    #if no unification return 0
+    if non_zero.size()[0]==0:
+        sim = torch.zeros_like(sim)
+    else:
+        sim[non_zero] = sim[non_zero] * F.cosine_similarity(tmp_c[non_zero,num_predicates+num_constants:-1],tmp_t[non_zero,num_predicates+num_constants:],dim=1)
+
+    non_zero = sim.nonzero().squeeze()
+    if non_zero.size()[0]==0:
+        sim = torch.zeros_like(sim)
+    else:
+        sim[non_zero] = sim[non_zero] * F.cosine_similarity(tmp_c[non_zero,:num_predicates] ,tmp_t[non_zero,:num_predicates],dim=1)
+    
+    #for each consequence/target, get the maximum simlarity with the set of targets/consequences
+    if testing:
+        sim = sim.view(-1,num_consequences)
+    else:
+        sim = sim.view(-1,num_targets)
+    m, idx = torch.max(sim,dim=1)
+    print("fms took %s" % (time.time() - start_time))
+    if testing:
+        return m, tmp_c[idx,-1]
+    return m
 
     
 ####TRAINING
@@ -171,7 +229,7 @@ def forward_step(facts,K):
 target = Variable(knowledge_pos)
 no_samples = 50
 
-num_iters = 200
+num_iters = 100
 learning_rate = .1
 lamb = 1
 
@@ -180,39 +238,6 @@ num_rules = 2
 epsilon=.001
 
 K = 30 ##For top K
-#Find maximum similarity for each consequence in the set of facts contained in target
-#if testing is true it finds the consequence with maximum similarity for each target
-#if testing is true, returns the truth value of the matched predicted consequence for each target
-#Inputs: 
-#consequences: facts to be looked for maximum similarities across target
-#target: set of facts that are assumed to be true
-#testing: returns the probabilities of matched facts, a prediction is considered true if p>0.5
-def find_max_similarities(consequences,target,testing=False):    
-    num_consequences = consequences.size()[0]
-    num_targets = target.size()[0]
-    #each consequence repeated by the number of targets
-    if testing:
-        #for each target find max similarity across consequences
-        tmp_c = consequences.repeat(num_targets,1)
-        tmp_t = target.repeat(1,num_consequences).view(-1,num_feats_per_fact)
-    else:
-        #for each consequence compute the similarity with all targets
-        tmp_c = consequences.repeat(1,num_targets).view(-1,num_feats_per_fact+1)
-        tmp_t = target.repeat(num_consequences,1)
-    sim = F.cosine_similarity(tmp_c[:,:num_predicates],tmp_t[:,:num_predicates],dim=1)
-    sim = sim * F.cosine_similarity(tmp_c[:,num_predicates:num_predicates+num_constants],
-                                    tmp_t[:,num_predicates:num_predicates+num_constants],dim=1)
-    sim = sim * F.cosine_similarity(tmp_c[:,num_predicates+num_constants:-1],
-                                    tmp_t[:,num_predicates+num_constants:],dim=1)
-    #for each consequence/target, get the maximum simlarity with the set of targets/consequences
-    if testing:
-        sim = sim.view(-1,num_consequences)
-    else:
-        sim = sim.view(-1,num_targets)
-    m, idx = torch.max(sim,dim=1)
-    if testing:
-        return m, tmp_c[idx,-1]
-    return m
 
 #hyperparameter search
 # lambdas = [1,2,5,0.3,0.8]
@@ -230,6 +255,7 @@ with open('test_acc_s1_neigh_sample','w') as f:
                  Variable(torch.rand(3*num_predicates), requires_grad=True)]
         # rules = [Variable(torch.rand(num_predicates), requires_grad=True),
         #          Variable(torch.Tensor([1, 1]), requires_grad=True)]
+        f.write('random_rules' + str(rules) + '\n')
         optimizer = torch.optim.Adam([
                 {'params': rules}], 
                 lr = learning_rate)
@@ -241,10 +267,6 @@ with open('test_acc_s1_neigh_sample','w') as f:
             for par in optimizer.param_groups:
                 par['params'][1].data.clamp_(min=0.1,max=0.9)
                 par['params'][0].data.clamp_(min=0.1,max=0.9)
-            # ##sampling
-            core_rel = torch.randperm(no_facts)
-            # # target = core_rel[no_samples:]
-            core_rel = core_rel[:no_samples]
 
             # core_rel = Variable(knowledge_pos[core_rel])
             core_rel = sample_neighbors(no_samples,data)
@@ -287,8 +309,8 @@ with open('test_acc_s1_neigh_sample','w') as f:
 
         #computing test results
         print('computing test results')
-        K_tmp = 200
-        facts = torch.cat((knowledge_pos, Variable(torch.ones(core_rel.size()[0], 1))), 1)
+        K_tmp = 300
+        facts = torch.cat((knowledge_pos, Variable(torch.ones(knowledge_pos.size()[0], 1))), 1)
         consequences = forward_step(facts,K_tmp)
         for step in range(1,steps):
             tmp = torch.cat((consequences,facts),dim=0)
