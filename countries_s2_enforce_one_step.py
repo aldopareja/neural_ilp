@@ -319,16 +319,20 @@ def forward_step(facts,K):
 #consequences: result of unrolling the rules for the specified steps with the input facts
 #target: set of facts that are assumed to be true
 #testing: returns the probabilities of matched facts, a prediction is considered true if p>0.5
-def find_max_similarities(consequences,target,testing=False):
+def find_max_similarities(consequences,target,testing=False,masking=False):
     start_time = time.time()    
     num_consequences = consequences.size()[0]
     num_targets = target.size()[0]
+
+    #add id to the facts
+    tmp_t = torch.cat((target,torch.range(0,target.size()[0]-1,1).unsqueeze(1))
+                     ,dim=1)
 
     #each consequence repeated by the number of targets
     if testing:
         #for each target find max similarity across consequences
         tmp_c = consequences.repeat(num_targets,1)
-        tmp_t = target.repeat(1,num_consequences).view(-1,num_feats_per_fact)
+        tmp_t = tmp_t.repeat(1,num_consequences).view(-1,num_feats_per_fact+1)
     else:
         #for each consequence compute the similarity with all targets
         tmp_c = consequences.repeat(1,num_targets).view(-1,num_feats_per_fact+3)
@@ -337,6 +341,18 @@ def find_max_similarities(consequences,target,testing=False):
     #first constant
     sim = F.cosine_similarity(tmp_c[:,num_predicates:num_predicates+num_constants],
                               tmp_t[:,num_predicates:num_predicates+num_constants],dim=1)
+    if masking:
+        #let's mask input facts
+        #repeat the indices over columns
+        mask = tmp_t[:,-1].unsqueeze(1)
+        mask = mask.repeat(1,2)
+        #substract from the fact indices
+        mask = tmp_c[:,num_predicates+2*num_constants+1:] - mask
+        #get the rows which have zeros
+        mask = (mask==0).nonzero()
+        #only the first column (containing the rows to be 0ed)
+        mask = mask[:,0].unique()
+        sim[mask] = 0
     #only compute for non-zero values to speed up
 #     non_zero = sim.nonzero()
 #     if non_zero.size()[0]==0:
@@ -354,8 +370,9 @@ def find_max_similarities(consequences,target,testing=False):
 #         sim[non_zero] = sim[non_zero] * F.cosine_similarity(tmp_c[non_zero,:num_predicates] 
 #                                                            ,tmp_t[non_zero,:num_predicates],dim=1)
 #         sim[non_zero] = sim[non_zero] + tmp_c[non_zero,-3]*lamb2
-    sim = sim * F.cosine_similarity(tmp_c[:,num_predicates+num_constants:-3]
-                                    ,tmp_t[:,num_predicates+num_constants:],dim=1)
+    sim = sim * F.cosine_similarity(tmp_c[:,num_predicates+num_constants:num_predicates+2*num_constants]
+                                    ,tmp_t[:,num_predicates+num_constants:num_predicates+2*num_constants]
+                                    ,dim=1)
     sim = sim * F.cosine_similarity(tmp_c[:,:num_predicates] 
                                                         ,tmp_t[:,:num_predicates],dim=1)
     sim = sim + tmp_c[:,-3]*lamb2
@@ -379,7 +396,7 @@ def find_max_similarities(consequences,target,testing=False):
 # target = Variable(knowledge_pos[[2,4],:])
 #####sampling
 target = Variable(knowledge_pos)
-no_samples = 30
+no_samples = 40
 
 num_iters = 50
 learning_rate = .1
@@ -394,7 +411,7 @@ K = 400 ##For top K
 
 #hyperparameter search
 # lambdas = [1,2,5,0.3,0.8]
-with open('s2_auc-pr','w') as f:
+with open('s2_auc-pr_masking','w') as f:
     # for lamb in lambdas:
     suc_rate_neigh = 0
     suc_rate_locin = 0
@@ -419,9 +436,9 @@ with open('s2_auc-pr','w') as f:
         rules_tmp = [torch.zeros_like(rule) for rule in rules]
         for epoch in range(num_iters):
             for par in optimizer.param_groups:
-                par['params'][2].data.clamp_(min=0.3,max=0.7)
-                par['params'][1].data.clamp_(min=0.3,max=0.7)
-                par['params'][0].data.clamp_(min=0.3,max=0.7)
+                par['params'][2].data.clamp_(min=0.1,max=0.9)
+                par['params'][1].data.clamp_(min=0.1,max=0.9)
+                par['params'][0].data.clamp_(min=0.1,max=0.9)
 
             # core_rel = Variable(knowledge_pos[core_rel])
             core_rel = sample_neighbors(no_samples,data)
@@ -436,7 +453,7 @@ with open('s2_auc-pr','w') as f:
                 consequences = torch.cat((consequences,tmp),dim=0)
             #LOSS
             loss = 0
-            m, matches = find_max_similarities(consequences,core_rel,testing=True)
+            m, matches = find_max_similarities(consequences,core_rel,testing=True,masking=True)
             loss = torch.sum(m*(1 - matches[:,-3]))
 #             print(epoch, 'losssssssssssssssssssss',loss.data[0])
             # print(sum([torch.sum(rules_tmp[i]-rules[i]) for i in range(num_rules)]))
@@ -447,7 +464,7 @@ with open('s2_auc-pr','w') as f:
             optimizer.step()
         print(rules)
         ###### printing and saving AUC
-        K_tmp = 500
+        K_tmp = 1000
         facts = torch.cat((knowledge_pos, Variable(torch.ones(knowledge_pos.size()[0], 1))), 1)
         consequences = forward_step(facts,K_tmp)
         for step in range(1,steps):
